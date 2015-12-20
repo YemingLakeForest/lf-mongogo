@@ -5,6 +5,7 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.bson.codecs.DocumentCodec;
@@ -16,9 +17,8 @@ import org.bson.json.JsonWriterSettings;
 import org.bson.types.ObjectId;
 
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.List;
 
+import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.orderBy;
 
@@ -31,28 +31,26 @@ public class Homework23 {
         MongoClient client = new MongoClient(new ServerAddress(), options);
 
         MongoDatabase db = client.getDatabase("students").withReadPreference(ReadPreference.secondary());
-        MongoCollection collection = db.getCollection("grades");
+        MongoCollection<Document> collection = db.getCollection("grades");
 
-        Bson filter = new Document("type", "homework");
+        Bson filter = eq("type", "homework");
         Bson sort = orderBy(ascending("student_id"), ascending("score"));
 
-        List<Document> all = (List<Document>) collection
-                .find(filter)
-                .sort(sort)
-                .into(new ArrayList<Document>());
+        MongoCursor<Document> cursor = collection.find(filter)
+                                                 .sort(sort).iterator();
 
         int id = -1;
 
-        for (Document document : all) {
-
-            int studentId = (int) document.get("student_id");
+        while (cursor.hasNext()) {
+            Document entry = cursor.next();
+            int studentId = (int) entry.get("student_id");
 
             if (id != studentId) {
                 System.out.println("removing this record!!!");
-                printJson(document);
-                ObjectId objectId = document.getObjectId("_id");
+                printJson(entry);
+                ObjectId objectId = entry.getObjectId("_id");
 
-                collection.deleteOne(new Document("_id", objectId));
+                collection.deleteOne(eq("_id", objectId));
             }
             id = studentId;
         }
